@@ -14,7 +14,8 @@
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
 
     <script>
-        tailwind.config = {
+        if (window.tailwind) {
+            window.tailwind.config = {
             darkMode: 'class',
             theme: {
                 extend: {
@@ -30,6 +31,7 @@
                             500: '#14b8a6',
                             600: '#0d9488',
                             900: '#134e4a',
+                            }
                         }
                     }
                 }
