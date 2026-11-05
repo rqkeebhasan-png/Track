@@ -122,9 +122,6 @@
                     <i class="ph-bold ph-plus text-sm"></i>
                     <span class="hidden sm:inline">নতুন টাইমার যোগ</span>
                 </button>
-                <button onclick="confirmResetDay()" title="আজকের টাইমার রিসেট করুন" class="p-2 rounded-xl bg-slate-800/80 hover:bg-rose-500/20 hover:text-rose-400 hover:border-rose-500/30 text-slate-400 border border-slate-700/60 transition">
-                    <i class="ph ph-arrow-counter-clockwise text-lg"></i>
-                </button>
             </div>
         </div>
 
@@ -234,14 +231,8 @@
                         </button>
                     </div>
 
-                    <!-- Primary Controls (Start / Pause / Reset / Complete) -->
-                    <div class="w-full grid grid-cols-4 gap-2.5">
-                        <!-- Reset Current Task -->
-                        <button onclick="resetActiveTask()" title="এই টাইমারটি প্রথম থেকে শুরু করুন" class="col-span-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-300 flex flex-col items-center justify-center gap-1 border border-slate-700 transition">
-                            <i class="ph-bold ph-arrow-counter-clockwise text-lg"></i>
-                            <span class="text-[11px]">রিসেট</span>
-                        </button>
-
+                    <!-- Primary Controls (Start / Pause / Complete) -->
+                    <div class="w-full grid grid-cols-3 gap-2.5">
                         <!-- Main Play / Pause Toggle -->
                         <button id="mainPlayPauseBtn" onclick="toggleActiveTimer()" class="col-span-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-base shadow-lg shadow-teal-500/25 flex items-center justify-center gap-2 transition transform active:scale-95">
                             <i id="mainPlayIcon" class="ph-fill ph-play text-xl"></i>
@@ -362,10 +353,7 @@
                 <!-- Populated by JS -->
             </div>
 
-            <div class="flex items-center justify-between pt-3 border-t border-slate-800">
-                <button onclick="confirmFactoryReset()" class="text-xs text-rose-400 hover:underline flex items-center gap-1">
-                    <i class="ph ph-trash"></i> সব দিনের অগ্রগতি রিসেট করুন
-                </button>
+            <div class="flex items-center justify-end pt-3 border-t border-slate-800">
                 <button onclick="closeWeeklyModal()" class="px-5 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs">বন্ধ করুন</button>
             </div>
         </div>
@@ -887,18 +875,6 @@
             saveState();
         }
 
-        function resetActiveTask() {
-            pauseTimerEngine();
-            const found = findTaskById(activeTaskId);
-            if (!found) return;
-            found.task.elapsedSec = 0;
-            found.task.completed = false;
-            saveState();
-            renderDayTabs();
-            renderSelectedDayView();
-            showToast("টাইমারটি প্রথম থেকে রিসেট করা হয়েছে।");
-        }
-
         function markActiveTaskDone() {
             pauseTimerEngine();
             const found = findTaskById(activeTaskId);
@@ -1028,28 +1004,6 @@
         function closeWeeklyModal() {
             document.getElementById('weeklyModal').classList.add('hidden');
             document.getElementById('weeklyModal').classList.remove('flex');
-        }
-
-        function confirmResetDay() {
-            pauseTimerEngine();
-            const day = scheduleData[selectedDayIndex];
-            day.tasks.forEach(t => {
-                t.elapsedSec = 0;
-                t.completed = false;
-            });
-            saveState();
-            renderDayTabs();
-            renderSelectedDayView();
-            showToast(`${day.nameBn}-এর সব টাইমার রিসেট করা হয়েছে।`);
-        }
-
-        function confirmFactoryReset() {
-            pauseTimerEngine();
-            localStorage.removeItem(STORAGE_KEY);
-            scheduleData = JSON.parse(JSON.stringify(DEFAULT_WEEKLY_SCHEDULE));
-            closeWeeklyModal();
-            initApp();
-            showToast("সম্পূর্ণ সাপ্তাহিক রুটিন ডিফল্ট অবস্থায় রিসেট করা হয়েছে।");
         }
 
         /**************************************************************
