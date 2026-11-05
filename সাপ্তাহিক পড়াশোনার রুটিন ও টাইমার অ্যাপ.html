@@ -231,18 +231,12 @@
                         </button>
                     </div>
 
-                    <!-- Primary Controls (Start / Pause / Complete) -->
-                    <div class="w-full grid grid-cols-3 gap-2.5">
+                    <!-- Primary Controls (Start / Pause) -->
+                    <div class="w-full">
                         <!-- Main Play / Pause Toggle -->
-                        <button id="mainPlayPauseBtn" onclick="toggleActiveTimer()" class="col-span-2 py-3.5 px-6 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-base shadow-lg shadow-teal-500/25 flex items-center justify-center gap-2 transition transform active:scale-95">
+                        <button id="mainPlayPauseBtn" onclick="toggleActiveTimer()" class="w-full py-3.5 px-6 rounded-2xl bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-slate-950 font-bold text-base shadow-lg shadow-teal-500/25 flex items-center justify-center gap-2 transition transform active:scale-95">
                             <i id="mainPlayIcon" class="ph-fill ph-play text-xl"></i>
                             <span id="mainPlayText">শুরু করুন (Start)</span>
-                        </button>
-
-                        <!-- Mark Completed -->
-                        <button onclick="markActiveTaskDone()" title="সম্পূর্ণ হয়েছে হিসেবে চিহ্নিত করুন" class="col-span-1 py-3.5 rounded-2xl bg-slate-800 hover:bg-emerald-500/20 hover:text-emerald-300 hover:border-emerald-500/40 text-slate-300 flex flex-col items-center justify-center gap-1 border border-slate-700 transition">
-                            <i class="ph-bold ph-check-circle text-lg"></i>
-                            <span class="text-[11px]">সম্পন্ন</span>
                         </button>
                     </div>
 
@@ -871,19 +865,6 @@
                 timerInterval = null;
             }
             saveState();
-        }
-
-        function markActiveTaskDone() {
-            pauseTimerEngine();
-            const found = findTaskById(activeTaskId);
-            if (!found) return;
-            found.task.elapsedSec = found.task.durationSec;
-            found.task.completed = true;
-            saveState();
-            playAlarmSound();
-            showToast(`✓ "${found.task.titleBn}" সম্পন্ন হিসেবে চিহ্নিত করা হয়েছে।`);
-            renderDayTabs();
-            renderSelectedDayView();
         }
 
         function adjustActiveTime(secondsDelta) {
