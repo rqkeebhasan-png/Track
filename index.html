@@ -674,8 +674,10 @@
             const statusText = document.getElementById('statusText');
             const playIcon = document.getElementById('mainPlayIcon');
             const playText = document.getElementById('mainPlayText');
+            const playButton = document.getElementById('mainPlayPauseBtn');
 
             if (isRunning) {
+                playButton.disabled = false;
                 heroCard.classList.add('active-glow');
                 statusDot.className = "w-2 h-2 rounded-full bg-teal-400 animate-ping";
                 statusText.textContent = "টাইমার চলছে (Focusing...)";
@@ -683,13 +685,15 @@
                 playText.textContent = "বিরতি (Pause)";
                 document.title = `⏳ ${formatHMS(remainingSec)} - ${task.titleEn}`;
             } else if (task.completed || remainingSec === 0) {
+                playButton.disabled = true;
                 heroCard.classList.remove('active-glow');
                 statusDot.className = "w-2 h-2 rounded-full bg-emerald-400";
                 statusText.textContent = "সম্পন্ন হয়েছে (Completed!)";
-                playIcon.className = "ph-fill ph-play text-xl";
-                playText.textContent = "পুনরায় শুরু";
+                playIcon.className = "ph-fill ph-check-circle text-xl";
+                playText.textContent = "সম্পন্ন হয়েছে";
                 document.title = "সাপ্তাহিক রুটিন ও এক্সপ্রেস টাইমার";
             } else {
+                playButton.disabled = false;
                 heroCard.classList.remove('active-glow');
                 statusDot.className = "w-2 h-2 rounded-full bg-amber-400";
                 statusText.textContent = task.elapsedSec > 0 ? "বিরতিতে আছে (Paused)" : "টাইমার প্রস্তুত (Ready)";
@@ -750,15 +754,15 @@
                                 </span>
                             </div>
 
-                            <button onclick="startOrToggleSpecificTask('${task.id}')" class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 transition shadow-md ${
+                            <button ${task.completed || remainingSec === 0 ? 'disabled' : `onclick="startOrToggleSpecificTask('${task.id}')"`} class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 transition shadow-md ${
                                 isThisRunning
                                     ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
-                                    : task.completed
-                                    ? 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                                    : task.completed || remainingSec === 0
+                                    ? 'bg-slate-800 text-emerald-300 border border-emerald-500/30 cursor-not-allowed'
                                     : 'bg-teal-500 hover:bg-teal-400 text-slate-950'
                             }">
-                                <i class="ph-fill ${isThisRunning ? 'ph-pause' : 'ph-play'} text-base"></i>
-                                <span>${isThisRunning ? 'বিরতি' : task.elapsedSec > 0 && !task.completed ? 'চালু করুন' : 'শুরু করুন'}</span>
+                                <i class="ph-fill ${isThisRunning ? 'ph-pause' : task.completed || remainingSec === 0 ? 'ph-check-circle' : 'ph-play'} text-base"></i>
+                                <span>${isThisRunning ? 'বিরতি' : task.completed || remainingSec === 0 ? 'সম্পন্ন' : task.elapsedSec > 0 ? 'চালু করুন' : 'শুরু করুন'}</span>
                             </button>
                         </div>
                     </div>
@@ -803,11 +807,8 @@
                 pauseTimerEngine();
                 const found = findTaskById(taskId);
                 if (!found) return;
+                if (found.task.completed || found.task.elapsedSec >= found.task.durationSec) return;
                 activeTaskId = taskId;
-                if (found.task.completed || found.task.elapsedSec >= found.task.durationSec) {
-                    found.task.elapsedSec = 0;
-                    found.task.completed = false;
-                }
                 startTimerEngine();
                 renderSelectedDayView();
             }
@@ -820,10 +821,7 @@
             if (isRunning) {
                 pauseTimerEngine();
             } else {
-                if (found.task.completed || found.task.elapsedSec >= found.task.durationSec) {
-                    found.task.elapsedSec = 0;
-                    found.task.completed = false;
-                }
+                if (found.task.completed || found.task.elapsedSec >= found.task.durationSec) return;
                 startTimerEngine();
             }
             renderSelectedDayView();
