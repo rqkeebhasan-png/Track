@@ -646,6 +646,7 @@
             const found = findTaskById(activeTaskId);
             if (!found) return;
             const { task } = found;
+            const isFutureDay = selectedDayIndex > todayDayIndex;
 
             const remainingSec = Math.max(0, task.durationSec - task.elapsedSec);
             const progressFraction = task.durationSec > 0 ? Math.min(1, task.elapsedSec / task.durationSec) : 0;
@@ -670,7 +671,16 @@
             const playText = document.getElementById('mainPlayText');
             const playButton = document.getElementById('mainPlayPauseBtn');
 
-            if (isRunning) {
+            if (isFutureDay && !isRunning) {
+                heroCard.classList.remove('active-glow');
+                statusDot.className = "w-2 h-2 rounded-full bg-slate-400";
+                statusText.textContent = "ভবিষ্যৎ দিনের টাইমার লক করা আছে";
+                playIcon.className = "ph-fill ph-lock-key text-xl";
+                playText.textContent = "দিন শুরু হলে চালু হবে";
+                document.title = "সাপ্তাহিক রুটিন ও এক্সপ্রেস টাইমার";
+                document.getElementById('mainPlayPauseBtn').disabled = true;
+                document.getElementById('mainPlayPauseBtn').classList.add('opacity-60', 'cursor-not-allowed');
+            } else if (isRunning) {
                 playButton.disabled = false;
                 heroCard.classList.add('active-glow');
                 statusDot.className = "w-2 h-2 rounded-full bg-teal-400 animate-ping";
@@ -678,6 +688,8 @@
                 playIcon.className = "ph-fill ph-pause text-xl";
                 playText.textContent = "বিরতি (Pause)";
                 document.title = `⏳ ${formatHMS(remainingSec)} - ${task.titleEn}`;
+                playButton.disabled = false;
+                playButton.classList.remove('opacity-60', 'cursor-not-allowed');
             } else if (task.completed || remainingSec === 0) {
                 playButton.disabled = true;
                 heroCard.classList.remove('active-glow');
@@ -686,6 +698,8 @@
                 playIcon.className = "ph-fill ph-check-circle text-xl";
                 playText.textContent = "সম্পন্ন হয়েছে";
                 document.title = "সাপ্তাহিক রুটিন ও এক্সপ্রেস টাইমার";
+                playButton.disabled = false;
+                playButton.classList.remove('opacity-60', 'cursor-not-allowed');
             } else {
                 playButton.disabled = false;
                 heroCard.classList.remove('active-glow');
@@ -694,6 +708,8 @@
                 playIcon.className = "ph-fill ph-play text-xl";
                 playText.textContent = task.elapsedSec > 0 ? "চালিয়ে যান (Resume)" : "শুরু করুন (Start)";
                 document.title = "সাপ্তাহিক রুটিন ও এক্সপ্রেস টাইমার";
+                playButton.disabled = false;
+                playButton.classList.remove('opacity-60', 'cursor-not-allowed');
             }
         }
 
@@ -705,6 +721,7 @@
             day.tasks.forEach((task) => {
                 const isThisActive = task.id === activeTaskId;
                 const isThisRunning = isThisActive && isRunning;
+                const isFutureDay = day.dayIndex > todayDayIndex;
                 const remainingSec = Math.max(0, task.durationSec - task.elapsedSec);
                 const pct = task.durationSec > 0 ? Math.min(100, Math.round((task.elapsedSec / task.durationSec) * 100)) : 0;
                 const style = getCategoryStyle(task.category);
@@ -748,15 +765,17 @@
                                 </span>
                             </div>
 
-                            <button ${task.completed || remainingSec === 0 ? 'disabled' : `onclick="startOrToggleSpecificTask('${task.id}')"`} class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 transition shadow-md ${
-                                isThisRunning
+                            <button ${isFutureDay ? 'disabled' : ''} onclick="startOrToggleSpecificTask('${task.id}')" class="px-4 py-2.5 rounded-xl font-bold text-xs sm:text-sm flex items-center gap-1.5 transition shadow-md ${
+                                isFutureDay
+                                    ? 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                                    : isThisRunning
                                     ? 'bg-amber-400 hover:bg-amber-300 text-slate-950'
                                     : task.completed || remainingSec === 0
                                     ? 'bg-slate-800 text-emerald-300 border border-emerald-500/30 cursor-not-allowed'
                                     : 'bg-teal-500 hover:bg-teal-400 text-slate-950'
                             }">
-                                <i class="ph-fill ${isThisRunning ? 'ph-pause' : task.completed || remainingSec === 0 ? 'ph-check-circle' : 'ph-play'} text-base"></i>
-                                <span>${isThisRunning ? 'বিরতি' : task.completed || remainingSec === 0 ? 'সম্পন্ন' : task.elapsedSec > 0 ? 'চালু করুন' : 'শুরু করুন'}</span>
+                                <i class="ph-fill ${isFutureDay ? 'ph-lock-key' : isThisRunning ? 'ph-pause' : task.completed || remainingSec === 0 ? 'ph-check-circle' : 'ph-play'} text-base"></i>
+                                <span>${isFutureDay ? 'দিন শুরু হলে' : isThisRunning ? 'বিরতি' : task.completed || remainingSec === 0 ? 'সম্পন্ন' : task.elapsedSec > 0 ? 'চালু করুন' : 'শুরু করুন'}</span>
                             </button>
                         </div>
                     </div>
@@ -781,6 +800,10 @@
             return null;
         }
 
+        function isFutureDay(dayIndex) {
+            return dayIndex > todayDayIndex;
+        }
+
         function selectDay(dayIdx) {
             selectedDayIndex = dayIdx;
             const day = scheduleData[selectedDayIndex];
@@ -794,6 +817,12 @@
         }
 
         function startOrToggleSpecificTask(taskId) {
+            const target = findTaskById(taskId);
+            if (!target) return;
+            if (isFutureDay(target.dayIndex)) {
+                showToast("এই দিনের টাইমার দিন শুরু হলে চালু করা যাবে।");
+                return;
+            }
             if (activeTaskId === taskId) {
                 toggleActiveTimer();
             } else {
@@ -811,6 +840,10 @@
         function toggleActiveTimer() {
             const found = findTaskById(activeTaskId);
             if (!found) return;
+            if (isFutureDay(found.dayIndex) && !isRunning) {
+                showToast("এই দিনের টাইমার দিন শুরু হলে চালু করা যাবে।");
+                return;
+            }
 
             if (isRunning) {
                 pauseTimerEngine();
