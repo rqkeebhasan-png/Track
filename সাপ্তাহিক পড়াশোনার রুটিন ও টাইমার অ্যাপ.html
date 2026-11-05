@@ -439,6 +439,7 @@
         ];
 
         const STORAGE_KEY = "study_routine_express_v1";
+        const ACTIVE_TIMER_KEY = `${STORAGE_KEY}_active_timer`;
         const CIRCUMFERENCE = 2 * Math.PI * 114; // ~716.28
 
         // Application State
@@ -483,6 +484,48 @@
             }
         }
 
+        function saveActiveTimerState() {
+            try {
+                if (!isRunning || !activeTaskId || !sessionStartTimestamp) {
+                    localStorage.removeItem(ACTIVE_TIMER_KEY);
+                    return;
+                }
+                localStorage.setItem(ACTIVE_TIMER_KEY, JSON.stringify({
+                    activeTaskId,
+                    sessionStartTimestamp,
+                    sessionInitialElapsedSec,
+                    lastTickTimestamp
+                }));
+            } catch (e) {
+                console.warn("Active timer save error:", e);
+            }
+        }
+
+        function restoreActiveTimerState() {
+            try {
+                const raw = localStorage.getItem(ACTIVE_TIMER_KEY);
+                if (!raw) return;
+                const saved = JSON.parse(raw);
+                if (!saved.activeTaskId || !saved.sessionStartTimestamp || !saved.lastTickTimestamp) {
+                    localStorage.removeItem(ACTIVE_TIMER_KEY);
+                    return;
+                }
+                if (!findTaskById(saved.activeTaskId)) {
+                    localStorage.removeItem(ACTIVE_TIMER_KEY);
+                    return;
+                }
+                activeTaskId = saved.activeTaskId;
+                sessionStartTimestamp = saved.sessionStartTimestamp;
+                sessionInitialElapsedSec = saved.sessionInitialElapsedSec || 0;
+                lastTickTimestamp = saved.lastTickTimestamp;
+                isRunning = true;
+                tickTimer(Date.now());
+            } catch (e) {
+                console.warn("Active timer restore error:", e);
+                localStorage.removeItem(ACTIVE_TIMER_KEY);
+            }
+        }
+
         function initApp() {
             loadState();
             todayDayIndex = new Date().getDay();
@@ -498,6 +541,7 @@
             const firstIncomplete = currentDayObj.tasks.find(t => !t.completed) || currentDayObj.tasks[0];
             activeTaskId = firstIncomplete ? firstIncomplete.id : null;
 
+            restoreActiveTimerState();
             renderDayTabs();
             renderSelectedDayView();
         }
@@ -880,38 +924,50 @@
             sessionStartTimestamp = lastTickTimestamp;
             const active = findTaskById(activeTaskId);
             sessionInitialElapsedSec = active ? active.task.elapsedSec : 0;
+            saveActiveTimerState();
 
             timerInterval = setInterval(() => {
-                const now = Date.now();
-                const deltaSec = Math.max(1, Math.round((now - lastTickTimestamp) / 1000));
-                lastTickTimestamp = now;
-
-                const found = findTaskById(activeTaskId);
-                if (!found) {
-                    pauseTimerEngine();
-                    return;
-                }
-
-                const { task } = found;
-                task.elapsedSec += deltaSec;
-
-                if (task.elapsedSec >= task.durationSec) {
-                    task.elapsedSec = task.durationSec;
-                    finishActiveSession(now);
-                    task.completed = true;
-                    pauseTimerEngine();
-                    saveState();
-                    playAlarmSound();
-                    showToast(`🎉 অভিনন্দন! "${task.titleBn}"-এর নির্ধারিত সময় সম্পন্ন হয়েছে!`);
-                    renderDayTabs();
-                    renderSelectedDayView();
-                    return;
-                }
-
-                saveState();
-                renderHeroTimer();
-                renderTaskCards();
+                tickTimer(Date.now());
             }, 1000);
+        }
+
+        function tickTimer(now) {
+            if (!isRunning || !lastTickTimestamp) return;
+            const deltaSec = Math.floor((now - lastTickTimestamp) / 1000);
+            if (deltaSec <= 0) return;
+            lastTickTimestamp += deltaSec * 1000;
+
+            const found = findTaskById(activeTaskId);
+            if (!found) {
+                pauseTimerEngine();
+                return;
+            }
+
+            const { task } = found;
+            task.elapsedSec += deltaSec;
+
+            if (task.elapsedSec >= task.durationSec) {
+                task.elapsedSec = task.durationSec;
+                finishActiveSession(now);
+                task.completed = true;
+                isRunning = false;
+                if (timerInterval) {
+                    clearInterval(timerInterval);
+                    timerInterval = null;
+                }
+                saveActiveTimerState();
+                saveState();
+                playAlarmSound();
+                showToast(`🎉 অভিনন্দন! "${task.titleBn}"-এর নির্ধারিত সময় সম্পন্ন হয়েছে!`);
+                renderDayTabs();
+                renderSelectedDayView();
+                return;
+            }
+
+            saveActiveTimerState();
+            saveState();
+            renderHeroTimer();
+            renderTaskCards();
         }
 
         function pauseTimerEngine() {
@@ -921,6 +977,7 @@
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
+            saveActiveTimerState();
             saveState();
         }
 
@@ -1139,9 +1196,18 @@
             }, 3200);
         }
 
+        document.addEventListener('visibilitychange', () => {
+            if (isRunning) {
+                tickTimer(Date.now());
+                saveActiveTimerState();
+                saveState();
+            }
+        });
+
         window.addEventListener('beforeunload', () => {
             if (isRunning) {
-                finishActiveSession(Date.now());
+                tickTimer(Date.now());
+                saveActiveTimerState();
                 saveState();
             }
         });
