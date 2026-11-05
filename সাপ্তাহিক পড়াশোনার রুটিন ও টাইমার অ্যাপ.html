@@ -118,6 +118,10 @@
                     <i class="ph ph-calendar-check text-teal-400 text-base"></i>
                     <span>সাপ্তাহিক সামারি (৪৩.৫ ঘণ্টা)</span>
                 </button>
+                <button onclick="openStudyLogModal()" class="px-3 py-2 rounded-xl bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 text-xs sm:text-sm font-medium border border-indigo-500/30 flex items-center gap-1.5 transition">
+                    <i class="ph ph-clock-counter-clockwise text-base"></i>
+                    <span>স্টাডি লগ</span>
+                </button>
                 <button onclick="openAddTaskModal()" class="px-3 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 text-xs sm:text-sm font-medium border border-teal-500/30 flex items-center gap-1.5 transition">
                     <i class="ph-bold ph-plus text-sm"></i>
                     <span class="hidden sm:inline">নতুন টাইমার যোগ</span>
@@ -351,6 +355,26 @@
                 <button onclick="closeWeeklyModal()" class="px-5 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs">বন্ধ করুন</button>
             </div>
         </div>
+
+        <!-- Modal 3: Detailed Study Sessions -->
+        <div id="studyLogModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
+            <div class="glass-card w-full max-w-3xl rounded-3xl p-6 border border-slate-700 shadow-2xl max-h-[85vh] flex flex-col">
+                <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+                    <div>
+                        <h3 class="text-lg font-bold text-white">বিস্তারিত স্টাডি লগ</h3>
+                        <p class="text-xs text-slate-400">প্রতিটি সেশনের শুরু, শেষ এবং মোট সময় দেখুন</p>
+                    </div>
+                    <button onclick="closeStudyLogModal()" class="text-slate-400 hover:text-white p-1">
+                        <i class="ph ph-x text-xl"></i>
+                    </button>
+                </div>
+                <div id="studyLogDayTabs" class="flex gap-2 overflow-x-auto py-3 border-b border-slate-800"></div>
+                <div id="studyLogContent" class="overflow-y-auto my-4 space-y-3 pr-1"></div>
+                <div class="flex items-center justify-end pt-3 border-t border-slate-800">
+                    <button onclick="closeStudyLogModal()" class="px-5 py-2 rounded-xl bg-teal-500 text-slate-950 font-bold text-xs">বন্ধ করুন</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Toast Notification Container -->
@@ -472,6 +496,9 @@
         let timerInterval = null;
         let isRunning = false;
         let lastTickTimestamp = null;
+        let sessionStartTimestamp = null;
+        let sessionInitialElapsedSec = 0;
+        let studyLogDayIndex = todayDayIndex;
 
         /**************************************************************
          * 2. INITIALIZATION & STORAGE PERSISTENCE
@@ -483,6 +510,9 @@
                     const parsed = JSON.parse(raw);
                     if (Array.isArray(parsed) && parsed.length === 7) {
                         scheduleData = parsed;
+                        scheduleData.forEach(day => day.tasks.forEach(task => {
+                            if (!Array.isArray(task.sessions)) task.sessions = [];
+                        }));
                         return;
                     }
                 }
@@ -537,6 +567,32 @@
             if (h > 0 && m > 0) return `${h} ঘণ্টা ${m} মিনিট`;
             if (h > 0) return `${h} ঘণ্টা`;
             return `${m} মিনিট`;
+        }
+
+        function formatClockTime(timestamp) {
+            return new Date(timestamp).toLocaleTimeString('en-US', {
+                hour: 'numeric',
+                minute: '2-digit'
+            });
+        }
+
+        function formatSessionDate(timestamp) {
+            return new Date(timestamp).toLocaleDateString('bn-BD', {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric'
+            });
+        }
+
+        function getTaskLoggedSeconds(task) {
+            if (task.sessions && task.sessions.length > 0) {
+                return task.sessions.reduce((total, session) => total + session.durationSec, 0);
+            }
+            return task.elapsedSec;
+        }
+
+        function getDayLoggedSeconds(day) {
+            return day.tasks.reduce((total, task) => total + getTaskLoggedSeconds(task), 0);
         }
 
         function getCategoryStyle(category) {
@@ -868,6 +924,9 @@
             if (timerInterval) clearInterval(timerInterval);
             isRunning = true;
             lastTickTimestamp = Date.now();
+            sessionStartTimestamp = lastTickTimestamp;
+            const active = findTaskById(activeTaskId);
+            sessionInitialElapsedSec = active ? active.task.elapsedSec : 0;
 
             timerInterval = setInterval(() => {
                 const now = Date.now();
@@ -885,6 +944,7 @@
 
                 if (task.elapsedSec >= task.durationSec) {
                     task.elapsedSec = task.durationSec;
+                    finishActiveSession(now);
                     task.completed = true;
                     pauseTimerEngine();
                     saveState();
@@ -902,12 +962,41 @@
         }
 
         function pauseTimerEngine() {
+            if (isRunning) finishActiveSession(Date.now());
             isRunning = false;
             if (timerInterval) {
                 clearInterval(timerInterval);
                 timerInterval = null;
             }
             saveState();
+        }
+
+        function finishActiveSession(endTimestamp) {
+            if (!sessionStartTimestamp || !activeTaskId) return;
+            const found = findTaskById(activeTaskId);
+            if (!found) {
+                sessionStartTimestamp = null;
+                return;
+            }
+
+            const task = found.task;
+            const maxSessionSeconds = Math.max(0, task.durationSec - sessionInitialElapsedSec);
+            const durationSec = Math.min(
+                maxSessionSeconds,
+                Math.max(0, Math.round((endTimestamp - sessionStartTimestamp) / 1000))
+            );
+
+            if (durationSec > 0) {
+                if (!Array.isArray(task.sessions)) task.sessions = [];
+                task.sessions.push({
+                    startAt: sessionStartTimestamp,
+                    endAt: endTimestamp,
+                    durationSec
+                });
+            }
+
+            sessionStartTimestamp = null;
+            sessionInitialElapsedSec = 0;
         }
 
         function adjustActiveTime(secondsDelta) {
@@ -969,6 +1058,7 @@
                 category: 'coding',
                 durationSec: totalSeconds,
                 elapsedSec: 0,
+                sessions: [],
                 optional: isOpt,
                 completed: false
             };
@@ -1028,6 +1118,81 @@
             document.getElementById('weeklyModal').classList.remove('flex');
         }
 
+        function openStudyLogModal() {
+            studyLogDayIndex = selectedDayIndex;
+            renderStudyLog();
+            document.getElementById('studyLogModal').classList.remove('hidden');
+            document.getElementById('studyLogModal').classList.add('flex');
+        }
+
+        function closeStudyLogModal() {
+            document.getElementById('studyLogModal').classList.add('hidden');
+            document.getElementById('studyLogModal').classList.remove('flex');
+        }
+
+        function renderStudyLog() {
+            const tabs = document.getElementById('studyLogDayTabs');
+            const content = document.getElementById('studyLogContent');
+            tabs.innerHTML = '';
+            scheduleData.forEach(day => {
+                const button = document.createElement('button');
+                const isSelected = day.dayIndex === studyLogDayIndex;
+                button.className = `px-3 py-1.5 rounded-xl border text-xs whitespace-nowrap ${
+                    isSelected
+                        ? 'bg-teal-500/20 text-teal-300 border-teal-500/50'
+                        : 'bg-slate-900 text-slate-400 border-slate-700'
+                }`;
+                button.textContent = `${day.nameBn}${day.dayIndex === todayDayIndex ? ' (আজ)' : ''}`;
+                button.onclick = () => {
+                    studyLogDayIndex = day.dayIndex;
+                    renderStudyLog();
+                };
+                tabs.appendChild(button);
+            });
+
+            const day = scheduleData[studyLogDayIndex];
+            const totalSeconds = getDayLoggedSeconds(day);
+            const sessions = day.tasks.flatMap(task => (task.sessions || []).map(session => ({
+                ...session,
+                taskTitle: task.titleBn
+            }))).sort((a, b) => a.startAt - b.startAt);
+
+            content.innerHTML = `
+                <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/30">
+                    <div class="flex items-center justify-between gap-3">
+                        <div>
+                            <h4 class="font-bold text-white">${day.nameBn} (${day.nameEn})</h4>
+                            <p class="text-xs text-slate-400 mt-1">রেকর্ড করা মোট স্টাডি সময়</p>
+                        </div>
+                        <span class="font-mono font-bold text-indigo-300">${formatHumanDurationBn(totalSeconds)}</span>
+                    </div>
+                </div>
+                ${sessions.length === 0
+                    ? '<div class="p-5 rounded-2xl bg-slate-900/80 border border-slate-800 text-center text-sm text-slate-400">এই দিনের কোনো সম্পূর্ণ স্টাডি সেশন রেকর্ড নেই।</div>'
+                    : sessions.map((session, index) => `
+                        <div class="p-4 rounded-2xl bg-slate-900/80 border border-slate-800">
+                            <div class="flex items-center justify-between gap-3">
+                                <div>
+                                    <p class="font-semibold text-white">${index + 1}. ${session.taskTitle}</p>
+                                    <p class="text-xs text-slate-400 mt-1">${formatSessionDate(session.startAt)}</p>
+                                </div>
+                                <span class="font-mono text-teal-300">${formatHumanDurationBn(session.durationSec)}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-3 mt-3 text-xs">
+                                <div class="rounded-xl bg-slate-800/80 p-2.5">
+                                    <span class="block text-slate-500">শুরু</span>
+                                    <strong class="text-slate-200">${formatClockTime(session.startAt)}</strong>
+                                </div>
+                                <div class="rounded-xl bg-slate-800/80 p-2.5">
+                                    <span class="block text-slate-500">শেষ</span>
+                                    <strong class="text-slate-200">${formatClockTime(session.endAt)}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('')}
+            `;
+        }
+
         /**************************************************************
          * 7. WEB AUDIO API ALARM & TOAST NOTIFICATIONS
          **************************************************************/
@@ -1071,6 +1236,13 @@
                 setTimeout(() => toast.remove(), 300);
             }, 3200);
         }
+
+        window.addEventListener('beforeunload', () => {
+            if (isRunning) {
+                finishActiveSession(Date.now());
+                saveState();
+            }
+        });
 
         window.onload = initApp;
     </script>
