@@ -122,10 +122,6 @@
                     <i class="ph ph-clock-counter-clockwise text-base"></i>
                     <span>স্টাডি লগ</span>
                 </button>
-                <button onclick="openAddTaskModal()" class="px-3 py-2 rounded-xl bg-teal-500/10 hover:bg-teal-500/20 text-teal-300 text-xs sm:text-sm font-medium border border-teal-500/30 flex items-center gap-1.5 transition">
-                    <i class="ph-bold ph-plus text-sm"></i>
-                    <span class="hidden sm:inline">নতুন টাইমার যোগ</span>
-                </button>
             </div>
         </div>
 
@@ -291,50 +287,7 @@
         </div>
     </main>
 
-    <!-- Modal 1: Add Custom Task / Timer -->
-    <div id="addTaskModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
-        <div class="glass-card w-full max-w-md rounded-3xl p-6 border border-slate-700 shadow-2xl">
-            <div class="flex items-center justify-between pb-3 border-b border-slate-800">
-                <h3 class="text-lg font-bold text-white flex items-center gap-2">
-                    <i class="ph-duotone ph-plus-circle text-teal-400 text-xl"></i>
-                    নতুন টাইমার যোগ করুন
-                </h3>
-                <button onclick="closeAddTaskModal()" class="text-slate-400 hover:text-white p-1">
-                    <i class="ph ph-x text-xl"></i>
-                </button>
-            </div>
-
-            <form onsubmit="handleAddCustomTask(event)" class="mt-4 space-y-4">
-                <div>
-                    <label class="block text-xs text-slate-300 mb-1">বিষয়ের নাম (Subject Name)</label>
-                    <input id="customTaskTitle" type="text" required placeholder="যেমন: Data Structures Practice" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-teal-400">
-                </div>
-
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="block text-xs text-slate-300 mb-1">ঘণ্টা (Hours)</label>
-                        <input id="customTaskHours" type="number" min="0" max="12" value="1" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm font-mono focus:outline-none focus:border-teal-400">
-                    </div>
-                    <div>
-                        <label class="block text-xs text-slate-300 mb-1">মিনিট (Minutes)</label>
-                        <input id="customTaskMinutes" type="number" min="0" max="59" value="30" required class="w-full px-3.5 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm font-mono focus:outline-none focus:border-teal-400">
-                    </div>
-                </div>
-
-                <div class="flex items-center gap-2 pt-1">
-                    <input id="customTaskOptional" type="checkbox" class="w-4 h-4 rounded accent-teal-500">
-                    <label for="customTaskOptional" class="text-xs text-slate-300">এটি ঐচ্ছিক বিষয় (Optional Task)</label>
-                </div>
-
-                <div class="flex items-center justify-end gap-2 pt-3 border-t border-slate-800">
-                    <button type="button" onclick="closeAddTaskModal()" class="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium">বাতিল</button>
-                    <button type="submit" class="px-5 py-2 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-bold text-xs">টাইমার যুক্ত করুন</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <!-- Modal 2: Weekly Full Schedule Summary -->
+    <!-- Modal 1: Weekly Full Schedule Summary -->
     <div id="weeklyModal" class="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm hidden items-center justify-center p-4">
         <div class="glass-card w-full max-w-3xl rounded-3xl p-6 border border-slate-700 shadow-2xl max-h-[85vh] flex flex-col">
             <div class="flex items-center justify-between pb-3 border-b border-slate-800">
@@ -1027,57 +980,6 @@
         /**************************************************************
          * 6. MODALS & CUSTOM ACTIONS
          **************************************************************/
-        function openAddTaskModal() {
-            document.getElementById('addTaskModal').classList.remove('hidden');
-            document.getElementById('addTaskModal').classList.add('flex');
-        }
-
-        function closeAddTaskModal() {
-            document.getElementById('addTaskModal').classList.add('hidden');
-            document.getElementById('addTaskModal').classList.remove('flex');
-        }
-
-        function handleAddCustomTask(e) {
-            e.preventDefault();
-            const title = document.getElementById('customTaskTitle').value.trim();
-            const hrs = parseInt(document.getElementById('customTaskHours').value || '0', 10);
-            const mins = parseInt(document.getElementById('customTaskMinutes').value || '0', 10);
-            const isOpt = document.getElementById('customTaskOptional').checked;
-
-            const totalSeconds = (hrs * 3600) + (mins * 60);
-            if (!title || totalSeconds <= 0) {
-                showToast("অনুগ্রহ করে সঠিক নাম এবং সময় দিন।");
-                return;
-            }
-
-            const day = scheduleData[selectedDayIndex];
-            const newTask = {
-                id: 'custom-' + Date.now(),
-                titleBn: title,
-                titleEn: title,
-                category: 'coding',
-                durationSec: totalSeconds,
-                elapsedSec: 0,
-                sessions: [],
-                optional: isOpt,
-                completed: false
-            };
-
-            day.tasks.push(newTask);
-            if (!isOpt) {
-                day.coreHours = +(day.coreHours + (totalSeconds / 3600)).toFixed(2);
-            } else {
-                day.optionalHours = +(day.optionalHours + (totalSeconds / 3600)).toFixed(2);
-            }
-
-            saveState();
-            closeAddTaskModal();
-            document.getElementById('customTaskTitle').value = '';
-            renderDayTabs();
-            renderSelectedDayView();
-            showToast(`"${title}" রুটিনে যুক্ত করা হয়েছে!`);
-        }
-
         function openWeeklyModal() {
             const container = document.getElementById('weeklySummaryContent');
             container.innerHTML = '';
