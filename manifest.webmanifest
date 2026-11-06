@@ -1,0 +1,10 @@
+{
+  "name": "সাপ্তাহিক রুটিন ও এক্সপ্রেস টাইমার",
+  "short_name": "Track",
+  "description": "Study routine and focus timer",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#090d16",
+  "theme_color": "#090d16",
+  "lang": "bn"
+}
